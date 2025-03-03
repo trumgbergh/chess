@@ -1,20 +1,10 @@
 import pygame
 from sys import exit
-from chess.piece import Piece
-
-breakpoint()
+from chess.piece import Piece, Pawn, Rook, Knight, Bishop, King, Queen
+from chess import util
 
 prog_name = 'Chess'
-screen_size = width, height = 730, 730
-
-sq_size = screen_size[0] // 8
-rec_size = sq_size * (3.0 / 4.0)
-
-def cord2tlpixel(cord):
-    return (cord[0] * sq_size, cord[1] * sq_size)
-def cord2centerpixel(cord):
-    return (cord[0] * sq_size + sq_size // 2,
-            cord[1] * sq_size + sq_size // 2)
+screen_size = util.screen_size
 
 class Game:
     def __init__(self):
@@ -23,32 +13,49 @@ class Game:
         self.white_pieces = []
         self.moving_index = -1
 
-    def print_board(self, screen, chess_board):
+    def print_board(self, screen, chess_board, chesscord_font):
         screen.blit(chess_board, (0, 0))
+        for i in range(8):
+            num_cord2D = (0, i)
+            num_chesscord = util.cord2D_to_chesscord(num_cord2D)
+            color = (209, 139, 71)
+            if i % 2 != 0: 
+                color = (255, 206, 158)
+            num_cord_font = chesscord_font.render(f"{num_chesscord[1]}", 1, color)
+            screen.blit(num_cord_font, util.cord2tlpixel(num_cord2D))
+
+        for i in range(8):
+            letter_cord2D = (i, 7)
+            letter_chesscord = util.cord2D_to_chesscord(letter_cord2D)
+            color = (209, 139, 71)
+            if i % 2 == 0:
+                color = (255, 206, 158)
+            letter_cord_font = chesscord_font.render(f"{letter_chesscord[0]}", 1, color)
+            screen.blit(letter_cord_font, util.cord2blpixel(letter_cord2D))
 
     def create_black_pieces(self):
-        self.black_pieces.append(Piece((0, 0), 'black_rook'))
-        self.black_pieces.append(Piece((1, 0), 'black_knight'))
-        self.black_pieces.append(Piece((2, 0), 'black_bishop'))
-        self.black_pieces.append(Piece((3, 0), 'black_queen'))
-        self.black_pieces.append(Piece((4, 0), 'black_king'))
-        self.black_pieces.append(Piece((5, 0), 'black_bishop'))
-        self.black_pieces.append(Piece((6, 0), 'black_knight'))
-        self.black_pieces.append(Piece((7, 0), 'black_rook'))
+        self.black_pieces.append(Rook((0, 0), 'black'))
+        self.black_pieces.append(Knight((1, 0), 'black'))
+        self.black_pieces.append(Bishop((2, 0), 'black'))
+        self.black_pieces.append(Queen((3, 0), 'black'))
+        self.black_pieces.append(King((4, 0), 'black'))
+        self.black_pieces.append(Bishop((5, 0), 'black'))
+        self.black_pieces.append(Knight((6, 0), 'black'))
+        self.black_pieces.append(Rook((7, 0), 'black'))
         for i in range(8):
-            self.black_pieces.append(Piece((i, 1), 'black_pawn'))
+            self.black_pieces.append(Pawn((i, 1), 'black'))
 
     def create_white_pieces(self):
-        self.white_pieces.append(Piece((0, 7), 'white_rook'))
-        self.white_pieces.append(Piece((1, 7), 'white_knight'))
-        self.white_pieces.append(Piece((2, 7), 'white_bishop'))
-        self.white_pieces.append(Piece((3, 7), 'white_queen'))
-        self.white_pieces.append(Piece((4, 7), 'white_king'))
-        self.white_pieces.append(Piece((5, 7), 'white_bishop'))
-        self.white_pieces.append(Piece((6, 7), 'white_knight'))
-        self.white_pieces.append(Piece((7, 7), 'white_rook'))
+        self.white_pieces.append(Rook((0, 7), 'white'))
+        self.white_pieces.append(Knight((1, 7), 'white'))
+        self.white_pieces.append(Bishop((2, 7), 'white'))
+        self.white_pieces.append(Queen((3, 7), 'white'))
+        self.white_pieces.append(King((4, 7), 'white'))
+        self.white_pieces.append(Bishop((5, 7), 'white'))
+        self.white_pieces.append(Knight((6, 7), 'white'))
+        self.white_pieces.append(Rook((7, 7), 'white'))
         for i in range(8):
-            self.white_pieces.append(Piece((i, 6), 'white_pawn'))
+            self.white_pieces.append(Pawn((i, 6), 'white'))
 
     def print_pieces(self, screen):
         for bpiece in self.black_pieces:
@@ -74,21 +81,24 @@ class Game:
             moving[self.moving_index].pixelcord = nx_cord
             if pygame.mouse.get_pressed()[0] == False:
                 invalid = True
+                nx_cord2D = (-100, -100)
                 for r in range(8):
                     for c in range(8):
-                        center_dot = cord2centerpixel((r, c))
+                        center_dot = util.cord2centerpixel((r, c))
                         if moving[self.moving_index].piece_rec.collidepoint(center_dot):
                             invalid = False
-                            moving[self.moving_index].cord = (r, c)
-                            print((r, c))
-                            moving[self.moving_index].pixelcord = cord2tlpixel((r, c))
-                if not invalid:
+                            nx_cord2D = (r, c)
+                if not invalid and moving[self.moving_index].is_valid_move(nx_cord2D):
                     pygame.mixer.Sound("sound/standard/move-self.mp3").play()
+                    moving[self.moving_index].chesscord = util.cord2D_to_chesscord(nx_cord2D)
+                    moving[self.moving_index].cord = nx_cord2D
+                    print(util.cord2D_to_chesscord(nx_cord2D))
+                    moving[self.moving_index].pixelcord = util.cord2tlpixel(nx_cord2D)
                     self.turn = (self.turn + 1) % 2
                 else:
                     cord_initial = moving[self.moving_index].cord
-                    moving[self.moving_index].pixelcord = cord2tlpixel(cord_initial)
-                    moving[self.moving_index].piece_rec = moving[self.moving_index].piece.get_rect(topleft = cord2tlpixel(cord_initial))
+                    moving[self.moving_index].pixelcord = util.cord2tlpixel(cord_initial)
+                    moving[self.moving_index].piece_rec = moving[self.moving_index].piece.get_rect(topleft = util.cord2tlpixel(cord_initial))
 
                 self.moving_index = -1
 
@@ -101,6 +111,7 @@ def main():
     clock = pygame.time.Clock()
     chess_board = pygame.image.load('png/chessboard/chessboard1.png').convert_alpha()
     chess_board = pygame.transform.scale(chess_board, screen_size)
+    chesscord_font = pygame.font.Font("font/NotoSans-Regular.ttf", 20)
 
     while True:
         for event in pygame.event.get():
@@ -114,7 +125,7 @@ def main():
             game.create_white_pieces()
             InGame = True
 
-        game.print_board(screen, chess_board)
+        game.print_board(screen, chess_board, chesscord_font)
         game.print_pieces(screen)
 
         if game.turn == 0:
