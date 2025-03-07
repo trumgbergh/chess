@@ -24,8 +24,10 @@ deactivate
 
 With `pyproject.toml`:
 
+- Install dependencies including dev dependencies:
+
 ```
-pip install -e "."
+pip install -e ".[test]"
 ```
 
 (`-e`: install the currently developed package in editable mode)

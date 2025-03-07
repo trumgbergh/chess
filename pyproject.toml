@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "chess"
 description = "chess"
 keywords = ["chess"]
-version = "0.0.1"
+version = "0.0.2"
 requires-python = ">=3.10"
 dependencies = [
     "pygame",
@@ -14,7 +14,20 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
+    "pytest",
+    "pre-commit",
 ]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+
+[tool.isort]
+profile = "black"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -v"
 
 [tool.setuptools.packages.find]
 # Note: set this if we are using src layout.
