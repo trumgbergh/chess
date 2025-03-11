@@ -25,7 +25,6 @@ class Piece:
                 if piece.piece_name == f"{self.color}_king":
                     team_king = (r, c)
 
-        print(team_king)
         attacked = board[team_king[0]][team_king[1]].is_king_checked(board)
 
         board[x][y], board[nx_x][nx_y] = piece1, piece2
@@ -34,6 +33,7 @@ class Piece:
 
 class Pawn(Piece):
     def __init__(self, cord, color):
+        self.en_passant = False
         super().__init__(cord, f"{color}_pawn")
 
     def is_valid_move(self, next_cord2D, board, king_protection=True):
@@ -51,10 +51,27 @@ class Pawn(Piece):
         if abs(dx) == 1:
             if dy != 1:
                 return False
-            if self.color == "white" and board[nx_x][nx_y].color != "black":
+            invalid = 0
+            if self.color == "white":
+                if board[nx_x][nx_y].color != "black":
+                    invalid += 1
+                if (
+                    board[nx_x][y].piece_name != "black_pawn"
+                    or board[nx_x][y].en_passant is False
+                ):
+                    invalid += 1
+
+            if self.color == "black":
+                if board[nx_x][nx_y].color != "white":
+                    invalid += 1
+                if (
+                    board[nx_x][y].piece_name != "white_pawn"
+                    or board[nx_x][y].en_passant is False
+                ):
+                    invalid += 1
+            if invalid == 2:
                 return False
-            if self.color == "black" and board[nx_x][nx_y].color != "white":
-                return False
+
             if king_protection is False:
                 return True
             else:
@@ -74,6 +91,8 @@ class Pawn(Piece):
             if attacked is True:
                 return False
 
+        if abs(dy) == 2:
+            self.en_passant = True
         self.has_moved = True
         return True
 
@@ -141,7 +160,7 @@ class Knight(Piece):
 
         if self.color == "white" and board[nx_x][nx_y].color == "white":
             return False
-        if self.color == "black" and board[nx_x][nx_y].color == "white":
+        if self.color == "black" and board[nx_x][nx_y].color == "black":
             return False
 
         if king_protection is True:
@@ -226,13 +245,15 @@ class King(Piece):
         return True
 
     def is_king_checked(self, board):
-        x, y = self.cord
+        for i in range(8):
+            for j in range(8):
+                if board[i][j].piece_name == self.piece_name:
+                    x, y = i, j
         for row in board:
             for piece in row:
                 if piece.piece_name == "None" or piece.color == self.color:
                     continue
                 if piece.is_valid_move((x, y), board, False):
-                    print(f"{piece.piece_name=}")
                     return True
         return False
 

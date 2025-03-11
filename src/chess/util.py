@@ -18,9 +18,15 @@ def cord2centerpixel(cord):
 
 
 def cord2D_to_chesscord(cord):
-    col = chr(97 + cord[0])
-    row = 8 - cord[1]
-    return (col, row)
+    file = chr(97 + cord[0])
+    rank = chr(48 + (8 - cord[1]))
+    return (file, rank)
+
+
+def chesscord_to_cord2D(chesscord):
+    row = ord(chesscord[0]) - 97
+    col = 56 - ord(chesscord[1])
+    return (row, col)
 
 
 def piece_type(piece):

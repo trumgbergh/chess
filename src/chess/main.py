@@ -17,6 +17,7 @@ screen_size = util.screen_size
 class Game:
     def __init__(self):
         self.turn = 0
+        self.writing_file = True
         self.file_name = datetime.datetime.now().strftime("game%Y_%m_%d_%H_%M_%S")
         self.board = [[Piece((-1, -1), "None")] * 8 for _ in range(8)]
         self.board_history = []
@@ -43,18 +44,29 @@ class Game:
                 )
 
     def load_game_from_pgn(self, game_name=None):
+        self.writing_file = False
         if game_name is None:
             return
         pgn_string = util.turn_pgn_to_string(game_name)
         num_moves = parser.get_number_moves(pgn_string)
-        print(f"{num_moves=}")
         for i in range(num_moves):
-            cur_cord, nx_cord = parser.parse_move_pgn(pgn_string, self.board, self.turn)
+            if len(self.board_history) == self.turn:
+                self.board_history.append(copy.deepcopy(self.board))
+
             moving_color = "white"
             if self.turn % 2 != 0:
                 moving_color = "black"
+            cur_cord, nx_cord, chosen = parser.parse_move_pgn(
+                pgn_string, moving_color, self.board, self.turn
+            )
+            self.move_piece(cur_cord, nx_cord, chosen)
+            self.move_type = 0
+            self.turn += 1
+        # self.writing_file = True
 
     def write_move_to_pgn(self, cell, nx_cord2D):
+        if self.writing_file is False:
+            return
         util.algebraic_notation(
             cell, nx_cord2D, self.board_history[self.turn], self.move_type
         )
@@ -126,12 +138,11 @@ class Game:
             name = piece.piece_name
             screen.blit(self.image[name], piece.pixelcord)
 
-    def pawn_promotion(self, pawn_cord):
+    def pawn_promotion(self, pawn_cord, chosen=0):
         r, c = pawn_cord
         color = self.board[r][c].color
         cur_cord = self.board[r][c].cord
         # 0 = rook, 1 = knight, 2 = bishop, 3 = queen
-        chosen = 0
         if chosen == 0:
             self.board[r][c] = Rook(cur_cord, color)
         if chosen == 1:
@@ -142,7 +153,13 @@ class Game:
             self.board[r][c] = Queen(cur_cord, color)
         return chosen
 
+    def pick_promotion(self, moving_color):
+        mouse_pos = pygame.mouse.get_pos()
+        if pygame.mouse.get_pressed()[0] is True:
+            pass
+
     def play_sound(self):
+        print(f"{self.move_type=}")
         if (self.move_type & (1 << 1)) != 0:
             pygame.mixer.Sound("sound/standard/move-check.mp3").play()
         elif (self.move_type & (1 << 0)) != 0:
@@ -164,26 +181,52 @@ class Game:
         else:
             pygame.mixer.Sound("sound/standard/move-self.mp3").play()
 
-    def move_piece(self, cell, nx_cord2D):
+    def move_piece(self, cell, nx_cord2D, chosen=0):
         r, c = cell
         moving_color = self.board[r][c].color
         piece_name = self.board[r][c].piece_name
         nx_r, nx_c = nx_cord2D
+        pawn_en_passant = False
         if self.board[nx_r][nx_c].piece_name != "None":
             self.move_type |= 1 << 0
+        else:
+            pawn_en_passant = False
+            if moving_color == "white":
+                if (
+                    self.board[nx_r][c].piece_name == "black_pawn"
+                    and self.board[nx_r][c].en_passant is True
+                ):
+                    pawn_en_passant = True
+            else:
+                if (
+                    self.board[nx_r][c].piece_name == "white_pawn"
+                    and self.board[nx_r][c].en_passant is True
+                ):
+                    pawn_en_passant = True
+
+        if pawn_en_passant is True:
+            self.move_type |= 1 << 0
+            self.board[nx_r][c] = Piece((-1, -1), "None")
+            self.board_rec[nx_r][c] = None
 
         self.board[nx_r][nx_c] = self.board[r][c]
         self.board[r][c] = Piece((-1, -1), "None")
         self.board_rec[r][c] = None
 
-        util.debug_board(self.board_history[self.turn])
         self.board[nx_r][nx_c].chesscord = util.cord2D_to_chesscord(nx_cord2D)
         self.board[nx_r][nx_c].cord = nx_cord2D
 
         if piece_name == "white_pawn" and nx_cord2D[1] == 0:
-            self.move_type |= 1 << (5 + self.pawn_promotion(nx_cord2D))
+            chosen = self.pick_promotion()
+            if chosen == -1:
+                self.abort_move(moving_color)
+                return
+            self.move_type |= 1 << (5 + self.pawn_promotion(nx_cord2D, chosen))
         if piece_name == "black_pawn" and nx_cord2D[1] == 7:
-            self.move_type |= 1 << (5 + self.pawn_promotion(nx_cord2D))
+            if chosen == -1:
+                self.abort_move(moving_color)
+                return
+            self.move_type |= 1 << (5 + self.pawn_promotion(nx_cord2D, chosen))
 
         print(self.board[nx_r][nx_c].chesscord)
         # updating rec
@@ -208,13 +251,14 @@ class Game:
         self.play_sound()
 
     def abort_move(self):
-        r, c = self.moving_cell
-        piece_name = self.board[r][c].piece_name
-        cord_initial = self.board[r][c].cord
-        self.board[r][c].pixelcord = util.cord2tlpixel(cord_initial)
-        self.board_rec[r][c] = self.image[piece_name].get_rect(
-            topleft=util.cord2tlpixel(cord_initial)
-        )
+        self.board = self.board_history[self.turn]
+        for r, row in enumerate(self.board):
+            for c, piece in enumerate(row):
+                if piece.piece_name == "None":
+                    continue
+                self.board_rec[r][c] = self.image[piece.piece_name].get_rect(
+                    topleft=util.cord2tlpixel(piece.cord)
+                )
 
     def move_piece_pixel(self, cell, dx, dy):
         r, c = cell
@@ -227,8 +271,8 @@ class Game:
         self.board_rec[r][c] = nx_rect
         self.board[r][c].pixelcord = nx_cord
 
-    def process_move(self, moving_color, cell, nx_cord2D):
-        r, c = cell
+    def process_move(self, moving_color, cur_cord2D, nx_cord2D):
+        r, c = cur_cord2D
         piece_name = self.board[r][c].piece_name
 
         if self.board[r][c].is_valid_move(nx_cord2D, self.board):
@@ -300,8 +344,17 @@ class Game:
         self.move_type = 0
         self.moving_cell = (-1, -1)
 
+    def remove_en_passant(self, moving_color):
+        for row in self.board:
+            for piece in row:
+                if piece.color != moving_color:
+                    continue
+                if piece.piece_name == f"{moving_color}_pawn":
+                    piece.en_passant = False
+
     def make_a_move(self, moving_color):
         mouse_pos = pygame.mouse.get_pos()
+        self.remove_en_passant(moving_color)
 
         if self.moving_cell == (-1, -1):
             for r in range(8):
