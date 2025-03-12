@@ -12,11 +12,14 @@ import pygame  # noqa: E402
 
 prog_name = "Chess"
 screen_size = util.screen_size
+screen = pygame.display.set_mode(screen_size)
+clock = pygame.time.Clock()
 
 
 class Game:
     def __init__(self):
         self.turn = 0
+        self.running = False
         self.writing_file = True
         self.file_name = datetime.datetime.now().strftime("game%Y_%m_%d_%H_%M_%S")
         self.board = [[Piece((-1, -1), "None")] * 8 for _ in range(8)]
@@ -80,7 +83,7 @@ class Game:
             )
             file.write(" ")
 
-    def print_board(self, screen, chess_board, chesscord_font):
+    def print_board(self, chess_board, chesscord_font):
         screen.blit(chess_board, (0, 0))
         for i in range(8):
             num_cord2D = (0, i)
@@ -125,7 +128,7 @@ class Game:
         for i in range(8):
             self.board[i][6] = Pawn((i, 6), "white")
 
-    def print_pieces(self, screen):
+    def print_pieces(self):
         r, c = self.moving_cell
         for row in self.board:
             for piece in row:
@@ -142,21 +145,65 @@ class Game:
         r, c = pawn_cord
         color = self.board[r][c].color
         cur_cord = self.board[r][c].cord
-        # 0 = rook, 1 = knight, 2 = bishop, 3 = queen
+        # 0 = queen, 1 = knight, 2 = rook, 3 = bishop
         if chosen == 0:
-            self.board[r][c] = Rook(cur_cord, color)
+            self.board[r][c] = Queen(cur_cord, color)
         if chosen == 1:
             self.board[r][c] = Knight(cur_cord, color)
         if chosen == 2:
-            self.board[r][c] = Bishop(cur_cord, color)
+            self.board[r][c] = Rook(cur_cord, color)
         if chosen == 3:
-            self.board[r][c] = Queen(cur_cord, color)
+            self.board[r][c] = Bishop(cur_cord, color)
         return chosen
 
-    def pick_promotion(self, moving_color):
+    def draw_promotion_UI(self, moving_color, promotion_cell):
+        white_color = (255, 255, 255)
+        topleft_pixel = util.cord2tlpixel(promotion_cell)
+        width, height = util.sq_size + 2, util.sq_size * 4
+
+        rectangle = pygame.Rect(topleft_pixel, (width, height))
+        pygame.draw.rect(screen, white_color, rectangle)
+
+        promotion_piece = ["queen", "knight", "rook", "bishop"]
+        for d, piece_name in enumerate(promotion_piece):
+            r, c = promotion_cell
+            piece = f"{moving_color}_{piece_name}"
+            if moving_color == "white":
+                c += d
+            else:
+                c -= d
+            screen.blit(self.image[piece], util.cord2tlpixel((r, c)))
+
+    def pick_promotion(self, moving_color, promotion_cell):
+        piece_rec = []
+        promotion_piece = ["queen", "knight", "rook", "bishop"]
+        for d, piece_name in enumerate(promotion_piece):
+            r, c = promotion_cell
+            if moving_color == "white":
+                c += d
+            else:
+                c -= d
+            piece = f"{moving_color}_{piece_name}"
+            piece_rec.append(
+                self.image[piece].get_rect(topleft=util.cord2tlpixel((r, c)))
+            )
+
+        while pygame.mouse.get_pressed()[0] is False:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+
+            self.draw_promotion_UI(moving_color, promotion_cell)
+
+            pygame.display.update()
+            clock.tick(60)
+
         mouse_pos = pygame.mouse.get_pos()
-        if pygame.mouse.get_pressed()[0] is True:
-            pass
+        for d, rec in enumerate(piece_rec):
+            if rec.collidepoint(mouse_pos) is True:
+                return d
+        return -1
 
     def play_sound(self):
         print(f"{self.move_type=}")
@@ -180,6 +227,9 @@ class Game:
             pygame.mixer.Sound("sound/standard/promote.mp3").play()
         else:
             pygame.mixer.Sound("sound/standard/move-self.mp3").play()
+
+        if (self.move_type & (1 << 9)) != 0:
+            pygame.mixer.Sound("sound/standard/game-end.mp3").play()
 
     def move_piece(self, cell, nx_cord2D, chosen=0):
         r, c = cell
@@ -217,14 +267,17 @@ class Game:
         self.board[nx_r][nx_c].cord = nx_cord2D
 
         if piece_name == "white_pawn" and nx_cord2D[1] == 0:
-            chosen = self.pick_promotion()
+            chosen = self.pick_promotion(moving_color, nx_cord2D)
             if chosen == -1:
-                self.abort_move(moving_color)
+                self.abort_move()
+                self.turn -= 1
                 return
             self.move_type |= 1 << (5 + self.pawn_promotion(nx_cord2D, chosen))
         if piece_name == "black_pawn" and nx_cord2D[1] == 7:
+            chosen = self.pick_promotion(moving_color, nx_cord2D)
             if chosen == -1:
-                self.abort_move(moving_color)
+                self.abort_move()
+                self.turn -= 1
                 return
             self.move_type |= 1 << (5 + self.pawn_promotion(nx_cord2D, chosen))
 
@@ -244,14 +297,18 @@ class Game:
                 if piece_type == "king":
                     opponent_king_cell = piece.cord
 
+        king_row, king_col = opponent_king_cell
         if self.board[nx_r][nx_c].is_valid_move(opponent_king_cell, self.board):
             self.move_type |= 1 << 1
+        if self.board[king_row][king_col].is_checkmated(self.board):
+            self.running = False
+            self.move_type |= 1 << 9
 
         self.write_move_to_pgn(cell, nx_cord2D)
         self.play_sound()
 
     def abort_move(self):
-        self.board = self.board_history[self.turn]
+        self.board = copy.deepcopy(self.board_history[self.turn])
         for r, row in enumerate(self.board):
             for c, piece in enumerate(row):
                 if piece.piece_name == "None":
@@ -280,32 +337,15 @@ class Game:
             self.turn = self.turn + 1
         elif piece_name == "white_king" or piece_name == "black_king":
             # Castling
-            col = 0
-            if self.board[r][c].color == "white":
-                col = 7
             cord = self.board[r][c].cord
             if nx_cord2D[0] > cord[0]:
                 # Castling King side
-                right_rook = self.board[7][col]
-                nx_rook_cord2D = (nx_cord2D[0] - 1, nx_cord2D[1])
-                attacked = False
-                for x in range(cord[0], nx_cord2D[0] + 1):
-                    king_path_cord = (x, col)
-                    for row in self.board:
-                        for piece in row:
-                            if (
-                                piece.piece_name == "None"
-                                or piece.color == moving_color
-                            ):
-                                continue
-                            if piece.is_valid_move(king_path_cord, self.board):
-                                attacked = True
+                if self.board[r][c].is_valid_king_side_castle(nx_cord2D, self.board):
+                    rook_cord = (7, c)
+                    nx_rook_cord2D = (nx_cord2D[0] - 1, nx_cord2D[1])
 
-                if not attacked and self.board[r][c].is_valid_king_side_castle(
-                    nx_cord2D, right_rook, self.board
-                ):
                     self.move_piece(self.moving_cell, nx_cord2D)
-                    self.move_piece(right_rook.cord, nx_rook_cord2D)
+                    self.move_piece(rook_cord, nx_rook_cord2D)
                     self.move_type |= 1 << 3
                     self.play_sound()
                     self.turn = self.turn + 1
@@ -313,27 +353,11 @@ class Game:
                     self.abort_move()
             else:
                 # Castling Queen side
-                left_rook = self.board[0][col]
-                nx_rook_cord2D = (nx_cord2D[0] + 1, nx_cord2D[1])
-
-                attacked = False
-                for x in range(nx_cord2D[0], cord[0] + 1):
-                    king_path_cord = (x, col)
-                    for row in self.board:
-                        for piece in row:
-                            if (
-                                piece.piece_name == "None"
-                                or piece.color == moving_color
-                            ):
-                                continue
-                            if piece.is_valid_move(king_path_cord, self.board):
-                                attacked = True
-
-                if not attacked and self.board[r][c].is_valid_queen_side_castle(
-                    nx_cord2D, left_rook, self.board
-                ):
+                if self.board[r][c].is_valid_queen_side_castle(nx_cord2D, self.board):
+                    rook_cord = (0, c)
+                    nx_rook_cord2D = (nx_cord2D[0] + 1, nx_cord2D[1])
                     self.move_piece(self.moving_cell, nx_cord2D)
-                    self.move_piece(left_rook.cord, nx_rook_cord2D)
+                    self.move_piece(rook_cord, nx_rook_cord2D)
                     self.move_type |= 1 << 4
                     self.play_sound()
                     self.turn = self.turn + 1
@@ -398,24 +422,30 @@ class Game:
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode(screen_size)
     pygame.display.set_caption(prog_name)
-    clock = pygame.time.Clock()
     game = Game()
+    game.running = True
     chess_board = pygame.image.load("png/chessboard/chessboard1.png").convert_alpha()
     chess_board = pygame.transform.scale(chess_board, screen_size)
     chesscord_font = pygame.font.Font("font/NotoSans-Regular.ttf", 20)
     pygame.mixer.Sound("sound/standard/game-start.mp3").play()
-    game.load_game_from_pgn("game_pgns/game2025_03_09_15_14_41")
+    game.load_game_from_pgn("game_pgns/game2025_03_12_18_07_55")
 
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
-                exit()
+                return 0
 
-        game.print_board(screen, chess_board, chesscord_font)
-        game.print_pieces(screen)
+        game.print_board(chess_board, chesscord_font)
+        game.print_pieces()
+
+        if game.running is False:
+            if game.turn % 2 == 0:
+                print("BLACK WON!!!")
+            else:
+                print("WHITE WON!!!")
+            continue
 
         if len(game.board_history) == game.turn:
             game.board_history.append(copy.deepcopy(game.board))

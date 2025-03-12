@@ -1,8 +1,5 @@
-from chess.piece import Bishop, King, Knight, Pawn, Piece, Queen, Rook
-
 screen_size = width, height = 730, 730
 sq_size = screen_size[0] // 8
-rec_size = sq_size * (3.0 / 4.0)
 
 
 def cord2tlpixel(cord):
@@ -91,10 +88,10 @@ def algebraic_notation(cord, nx_cord2D, board, move_type):
     # checkmate = 2
     # king_side_castle = 3
     # queen_side_castle = 4
-    # pawn promotion_to_rook = 5
+    # pawn promotion_to_queen = 5
     # pawn_promotion_to_knight = 6
-    # pawn_promotion_to_bishop = 7
-    # pawn_prmotion_to_queen = 8
+    # pawn_promotion_to_rook = 7
+    # pawn_prmotion_to_bishop = 8
     move.append(piece_type(piece))
     if (move_type & (1 << 3)) != 0:
         move.append("O-O")
@@ -133,16 +130,16 @@ def algebraic_notation(cord, nx_cord2D, board, move_type):
     move.append(f"{dest_chess_cord[1]}")
 
     if (move_type & (1 << 5)) != 0:
-        move.append("=R")
+        move.append("=Q")
 
     if (move_type & (1 << 6)) != 0:
         move.append("=K")
 
     if (move_type & (1 << 7)) != 0:
-        move.append("=B")
+        move.append("=R")
 
     if (move_type & (1 << 8)) != 0:
-        move.append("=Q")
+        move.append("=B")
 
     if (move_type & (1 << 1)) != 0:
         move.append("+")

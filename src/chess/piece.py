@@ -217,13 +217,16 @@ class King(Piece):
         x, y = self.cord
         if self.is_king_checked(board) is False:
             return False
-        # for row in board:
-        #     for piece in row:
-        #         if piece.piece_name == "None" or piece.color != self.color:
-        #             continue
-        #         for r in range(8):
-        #             for c in range(8):
-        #
+        for row in board:
+            for piece in row:
+                if piece.piece_name == "None" or piece.color != self.color:
+                    continue
+
+                for r in range(8):
+                    for c in range(8):
+                        if piece.is_valid_move((r, c), board) is True:
+                            return False
+        return True
 
     def is_valid_move(self, nx_cord2D, board, king_protection=True):
         x, y = self.cord
@@ -257,11 +260,30 @@ class King(Piece):
                     return True
         return False
 
-    def is_valid_king_side_castle(self, nx_cord2D, rook, board):
+    def is_valid_king_side_castle(self, nx_cord2D, board):
         x, y = self.cord
         nx_x, nx_y = nx_cord2D
         dx = x - nx_x
         dy = y - nx_y
+
+        if self.color == "white" and y != 7:
+            return False
+        if self.color == "black" and y != 0:
+            return False
+
+        rook = board[7][y]
+        if rook.piece_name != f"{self.color}_rook":
+            return False
+
+        for r in range(x, nx_x + 1):
+            king_path_cord = (r, y)
+            for row in board:
+                for piece in row:
+                    if piece.piece_name == "None" or piece.color == self.color:
+                        continue
+                    if piece.is_valid_move(king_path_cord, board):
+                        return False
+
         if dx != -2 or dy != 0:
             return False
         if self.has_moved is True or rook.has_moved is True:
@@ -276,6 +298,24 @@ class King(Piece):
         nx_x, nx_y = nx_cord2D
         dx = x - nx_x
         dy = y - nx_y
+
+        if self.color == "white" and y != 7:
+            return False
+        if self.color == "black" and y != 0:
+            return False
+
+        rook = board[0][y]
+        if rook.piece_name != f"{self.color}_rook":
+            return False
+
+        for r in range(nx_x, x + 1):
+            king_path_cord = (r, y)
+            for row in board:
+                for piece in row:
+                    if piece.piece_name == "None" or piece.color == self.color:
+                        continue
+                    if piece.is_valid_move(king_path_cord, board):
+                        return False
         if dx != 2 or dy != 0:
             return False
         if self.has_moved is True or rook.has_moved is True:
