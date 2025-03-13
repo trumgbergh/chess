@@ -293,7 +293,7 @@ class King(Piece):
                 return False
         return True
 
-    def is_valid_queen_side_castle(self, nx_cord2D, rook, board):
+    def is_valid_queen_side_castle(self, nx_cord2D, board):
         x, y = self.cord
         nx_x, nx_y = nx_cord2D
         dx = x - nx_x

@@ -419,6 +419,55 @@ class Game:
                 return
             self.process_move(moving_color, self.moving_cell, nx_cord2D)
 
+    def threefold_repetition(self):
+        sz = len(self.board_history)
+        for i in range(sz):
+            for j in range(i + 1, sz):
+                if (
+                    self.repetition(self.board_history[i], self.board_history[j])
+                    is False
+                ):
+                    continue
+                for k in range(j + 1, sz):
+                    if (
+                        self.repetition(self.board_history[j], self.board_history[k])
+                        is True
+                    ):
+                        return True
+        return False
+
+    def repetition(self, board1, board2):
+        for r in range(8):
+            for c in range(8):
+                if board1[r][c].piece_name != board2[r][c].piece_name:
+                    return False
+                if board1[r][c].piece_name == "None":
+                    continue
+                for nx_r in range(8):
+                    for nx_c in range(8):
+                        nx_cord2D = nx_r, nx_c
+                        if board1[r][c].is_valid_move(nx_cord2D, board1) != board2[r][
+                            c
+                        ].is_valid_move(nx_cord2D, board2):
+                            return False
+                        if (
+                            board1[r][c].piece_name == "white_king"
+                            or board1[r][c].piece_name == "black_king"
+                        ):
+                            if board1[r][c].is_valid_king_side_castle(
+                                nx_cord2D, board1
+                            ) != board2[r][c].is_valid_king_side_castle(
+                                nx_cord2D, board2
+                            ):
+                                return False
+                            if board1[r][c].is_valid_queen_side_castle(
+                                nx_cord2D, board1
+                            ) != board2[r][c].is_valid_queen_side_castle(
+                                nx_cord2D, board2
+                            ):
+                                return False
+        return True
+
 
 def main():
     pygame.init()
@@ -443,12 +492,21 @@ def main():
         if game.running is False:
             if game.turn % 2 == 0:
                 print("BLACK WON!!!")
+                pygame.quit()
+                return 0
             else:
                 print("WHITE WON!!!")
+                pygame.quit()
+                return 0
             continue
 
         if len(game.board_history) == game.turn:
             game.board_history.append(copy.deepcopy(game.board))
+            if game.threefold_repetition() is True:
+                print("GAME DRAWN!!!")
+                pygame.quit()
+                return 0
+                continue
 
         if game.turn % 2 == 0:
             game.make_a_move("white")
