@@ -43,6 +43,7 @@ class Pawn(Piece):
         dx = self.cord[0] - next_cord2D[0]
         dy = self.cord[1] - next_cord2D[1]
         max_dis = 1
+
         if self.has_moved is False:
             max_dis = 2
         if self.color == "black":
@@ -92,7 +93,14 @@ class Pawn(Piece):
                 return False
 
         if abs(dy) == 2:
-            self.en_passant = True
+            op_pawn = "white_pawn"
+            if self.color == "white":
+                op_pawn = "black_pawn"
+
+            if nx_x != 0 and board[nx_x - 1][nx_y].piece_name == op_pawn:
+                self.en_passant = True
+            if nx_x != 7 and board[nx_x + 1][nx_y].piece_name == op_pawn:
+                self.en_passant = True
         self.has_moved = True
         return True
 

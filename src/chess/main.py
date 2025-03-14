@@ -4,6 +4,7 @@ from os import environ
 from sys import exit
 
 from chess import parser, util
+from chess.hash import ZobristHash
 from chess.piece import Bishop, King, Knight, Pawn, Piece, Queen, Rook
 
 environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
@@ -30,6 +31,8 @@ class Game:
         self.move_type = 0
         self.create_white_pieces()
         self.create_black_pieces()
+        self.board_hash = ZobristHash(self.board)
+        self.state_counter = {}
         for row in self.board:
             for piece in row:
                 piece_name = piece.piece_name
@@ -60,11 +63,9 @@ class Game:
             if self.turn % 2 != 0:
                 moving_color = "black"
             cur_cord, nx_cord, chosen = parser.parse_move_pgn(
-                pgn_string, moving_color, self.board, self.turn
+                pgn_string, moving_color, copy.deepcopy(self.board), self.turn
             )
-            self.move_piece(cur_cord, nx_cord, chosen)
-            self.move_type = 0
-            self.turn += 1
+            self.process_move(moving_color, cur_cord, nx_cord, chosen)
         # self.writing_file = True
 
     def write_move_to_pgn(self, cell, nx_cord2D):
@@ -231,7 +232,7 @@ class Game:
         if (self.move_type & (1 << 9)) != 0:
             pygame.mixer.Sound("sound/standard/game-end.mp3").play()
 
-    def move_piece(self, cell, nx_cord2D, chosen=0):
+    def move_piece(self, cell, nx_cord2D, chosen=-1):
         r, c = cell
         moving_color = self.board[r][c].color
         piece_name = self.board[r][c].piece_name
@@ -263,6 +264,7 @@ class Game:
         self.board[r][c] = Piece((-1, -1), "None")
         self.board_rec[r][c] = None
 
+        self.board[nx_r][nx_c].has_moved = True
         self.board[nx_r][nx_c].chesscord = util.cord2D_to_chesscord(nx_cord2D)
         self.board[nx_r][nx_c].cord = nx_cord2D
 
@@ -304,6 +306,10 @@ class Game:
             self.running = False
             self.move_type |= 1 << 9
 
+        self.board_hash.update_hash_piece_move(self.board_history[self.turn], cell)
+        self.board_hash.update_hash_piece_move(self.board, cell)
+        self.board_hash.update_hash_piece_move(self.board_history[self.turn], nx_cord2D)
+        self.board_hash.update_hash_piece_move(self.board, nx_cord2D)
         self.write_move_to_pgn(cell, nx_cord2D)
         self.play_sound()
 
@@ -328,12 +334,12 @@ class Game:
         self.board_rec[r][c] = nx_rect
         self.board[r][c].pixelcord = nx_cord
 
-    def process_move(self, moving_color, cur_cord2D, nx_cord2D):
+    def process_move(self, moving_color, cur_cord2D, nx_cord2D, chosen=-1):
         r, c = cur_cord2D
         piece_name = self.board[r][c].piece_name
 
         if self.board[r][c].is_valid_move(nx_cord2D, self.board):
-            self.move_piece(self.moving_cell, nx_cord2D)
+            self.move_piece(cur_cord2D, nx_cord2D)
             self.turn = self.turn + 1
         elif piece_name == "white_king" or piece_name == "black_king":
             # Castling
@@ -344,7 +350,7 @@ class Game:
                     rook_cord = (7, c)
                     nx_rook_cord2D = (nx_cord2D[0] - 1, nx_cord2D[1])
 
-                    self.move_piece(self.moving_cell, nx_cord2D)
+                    self.move_piece(cur_cord2D, nx_cord2D)
                     self.move_piece(rook_cord, nx_rook_cord2D)
                     self.move_type |= 1 << 3
                     self.play_sound()
@@ -356,7 +362,7 @@ class Game:
                 if self.board[r][c].is_valid_queen_side_castle(nx_cord2D, self.board):
                     rook_cord = (0, c)
                     nx_rook_cord2D = (nx_cord2D[0] + 1, nx_cord2D[1])
-                    self.move_piece(self.moving_cell, nx_cord2D)
+                    self.move_piece(cur_cord2D, nx_cord2D)
                     self.move_piece(rook_cord, nx_rook_cord2D)
                     self.move_type |= 1 << 4
                     self.play_sound()
@@ -419,23 +425,6 @@ class Game:
                 return
             self.process_move(moving_color, self.moving_cell, nx_cord2D)
 
-    def threefold_repetition(self):
-        sz = len(self.board_history)
-        for i in range(sz):
-            for j in range(i + 1, sz):
-                if (
-                    self.repetition(self.board_history[i], self.board_history[j])
-                    is False
-                ):
-                    continue
-                for k in range(j + 1, sz):
-                    if (
-                        self.repetition(self.board_history[j], self.board_history[k])
-                        is True
-                    ):
-                        return True
-        return False
-
     def repetition(self, board1, board2):
         for r in range(8):
             for c in range(8):
@@ -478,7 +467,8 @@ def main():
     chess_board = pygame.transform.scale(chess_board, screen_size)
     chesscord_font = pygame.font.Font("font/NotoSans-Regular.ttf", 20)
     pygame.mixer.Sound("sound/standard/game-start.mp3").play()
-    game.load_game_from_pgn("game_pgns/game2025_03_12_18_07_55")
+    # game.load_game_from_pgn("game_pgns/nathanwien_game0")
+    game.writing_file = False
 
     while True:
         for event in pygame.event.get():
@@ -498,15 +488,19 @@ def main():
                 print("WHITE WON!!!")
                 pygame.quit()
                 return 0
-            continue
+
+        game.board_hash.update_hash_player_turn(game.turn)
 
         if len(game.board_history) == game.turn:
             game.board_history.append(copy.deepcopy(game.board))
-            if game.threefold_repetition() is True:
+            print(f"{game.board_hash.hash=}")
+            if game.board_hash.hash not in game.state_counter:
+                game.state_counter[game.board_hash.hash] = 0
+            game.state_counter[game.board_hash.hash] += 1
+            if game.state_counter[game.board_hash.hash] == 3:
                 print("GAME DRAWN!!!")
                 pygame.quit()
                 return 0
-                continue
 
         if game.turn % 2 == 0:
             game.make_a_move("white")
