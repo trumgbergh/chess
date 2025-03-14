@@ -1,7 +1,10 @@
+import argparse
 import copy
 import datetime
+import multiprocessing
 from os import environ
 from sys import exit
+from typing import Optional, Sequence
 
 from chess import parser, util
 from chess.hash import ZobristHash
@@ -50,7 +53,6 @@ class Game:
                 )
 
     def load_game_from_pgn(self, game_name=None):
-        self.writing_file = False
         if game_name is None:
             return
         pgn_string = util.turn_pgn_to_string(game_name)
@@ -66,7 +68,6 @@ class Game:
                 pgn_string, moving_color, copy.deepcopy(self.board), self.turn
             )
             self.process_move(moving_color, cur_cord, nx_cord, chosen)
-        # self.writing_file = True
 
     def write_move_to_pgn(self, cell, nx_cord2D):
         if self.writing_file is False:
@@ -458,17 +459,58 @@ class Game:
         return True
 
 
-def main():
+def main(argv: Optional[Sequence[str]] = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--load-pgn",
+        type=str,
+        help="load a game from the game_pgns folder",
+    )
+
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    stockfish_parser = subparsers.add_parser("stockfish")
+    stockfish_parser.add_argument(
+        "--elo",
+        type=int,
+        default=1320,
+        help="set the elo of Stockfish (default = %(default)s, min 1320 max 3190)",
+    )
+
+    num_cores = multiprocessing.cpu_count()
+    max_threads = max(1, num_cores - 2)
+    stockfish_parser.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        help=f"set the number of threads Stockfish uses (default = %(default)s, min 1 max {max_threads})",  # noqa: E501
+    )
+
+    stockfish_parser.add_argument(
+        "--color",
+        choices=("white", "black"),
+        default="black",
+        help="choose the color of Stockfish (default = %(default)s)",
+    )
+
+    args = parser.parse_args(argv)
+
+    if args.command == "stockfish":
+        print("playing a fish")
+    elif args.command == "pvp":
+        print("playing a human")
+    print(args.load_pgn)
+
     pygame.init()
     pygame.display.set_caption(prog_name)
     game = Game()
+    game.writing_file = False
     game.running = True
     chess_board = pygame.image.load("png/chessboard/chessboard1.png").convert_alpha()
     chess_board = pygame.transform.scale(chess_board, screen_size)
     chesscord_font = pygame.font.Font("font/NotoSans-Regular.ttf", 20)
     pygame.mixer.Sound("sound/standard/game-start.mp3").play()
-    # game.load_game_from_pgn("game_pgns/nathanwien_game0")
-    game.writing_file = False
+    if args.load_pgn is not None:
+        game.load_game_from_pgn(f"game_pgns/{args.load_pgn}")
 
     while True:
         for event in pygame.event.get():

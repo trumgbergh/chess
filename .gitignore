@@ -73,3 +73,6 @@ dmypy.json
 
 # PGN files
 *.pgn
+
+# Stockfish
+stockfish/
