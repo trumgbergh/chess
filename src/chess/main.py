@@ -9,6 +9,7 @@ from typing import Optional, Sequence
 from chess import parser, util
 from chess.hash import ZobristHash
 from chess.piece import Bishop, King, Knight, Pawn, Piece, Queen, Rook
+from chess.uci import Communicator
 
 environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
@@ -18,6 +19,37 @@ prog_name = "Chess"
 screen_size = util.screen_size
 screen = pygame.display.set_mode(screen_size)
 clock = pygame.time.Clock()
+
+
+def elo_range(s: str) -> int:
+    try:
+        value = int(s)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected interger, got {s!r}")
+
+    if not 1320 <= value <= 3190:
+        raise argparse.ArgumentTypeError("out of range elo")
+    return value
+
+
+def depth_range(s: str) -> int:
+    try:
+        value = int(s)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected interger, got {s!r}")
+    if value <= 0:
+        raise argparse.ArgumentTypeError("out of depth range")
+    return value
+
+
+def movetime_range(s: str) -> int:
+    try:
+        value = int(s)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected interger, got {s!r}")
+    if value <= 0:
+        raise argparse.ArgumentTypeError("out of movetime range")
+    return value
 
 
 class Game:
@@ -30,6 +62,7 @@ class Game:
         self.board_history = []
         self.board_rec = [[None] * 8 for _ in range(8)]
         self.image = {}
+        self.uci_moves = []
         self.moving_cell = (-1, -1)
         self.move_type = 0
         self.create_white_pieces()
@@ -270,14 +303,16 @@ class Game:
         self.board[nx_r][nx_c].cord = nx_cord2D
 
         if piece_name == "white_pawn" and nx_cord2D[1] == 0:
-            chosen = self.pick_promotion(moving_color, nx_cord2D)
+            if chosen == -1:
+                chosen = self.pick_promotion(moving_color, nx_cord2D)
             if chosen == -1:
                 self.abort_move()
                 self.turn -= 1
                 return
             self.move_type |= 1 << (5 + self.pawn_promotion(nx_cord2D, chosen))
         if piece_name == "black_pawn" and nx_cord2D[1] == 7:
-            chosen = self.pick_promotion(moving_color, nx_cord2D)
+            if chosen == -1:
+                chosen = self.pick_promotion(moving_color, nx_cord2D)
             if chosen == -1:
                 self.abort_move()
                 self.turn -= 1
@@ -307,11 +342,27 @@ class Game:
             self.running = False
             self.move_type |= 1 << 9
 
+        # uci_moves
+        uci_cur_move = "".join(
+            util.long_algebraic_notation(cell, nx_cord2D, self.move_type)
+        )
+        is_rook_castling = False
+        if piece_name == "white_rook" or piece_name == "black_rook":
+            if (self.move_type & (1 << 3)) != 0 or (self.move_type & (1 << 4)) != 0:
+                is_rook_castling = True
+        if not is_rook_castling:
+            self.uci_moves.append(uci_cur_move)
+            self.uci_moves.append(" ")
+        # board hash
         self.board_hash.update_hash_piece_move(self.board_history[self.turn], cell)
         self.board_hash.update_hash_piece_move(self.board, cell)
         self.board_hash.update_hash_piece_move(self.board_history[self.turn], nx_cord2D)
         self.board_hash.update_hash_piece_move(self.board, nx_cord2D)
-        self.write_move_to_pgn(cell, nx_cord2D)
+
+        # writing to PGN files
+        if not is_rook_castling:
+            self.write_move_to_pgn(cell, nx_cord2D)
+        # Playing sound
         self.play_sound()
 
     def abort_move(self):
@@ -350,10 +401,9 @@ class Game:
                 if self.board[r][c].is_valid_king_side_castle(nx_cord2D, self.board):
                     rook_cord = (7, c)
                     nx_rook_cord2D = (nx_cord2D[0] - 1, nx_cord2D[1])
-
+                    self.move_type |= 1 << 3
                     self.move_piece(cur_cord2D, nx_cord2D)
                     self.move_piece(rook_cord, nx_rook_cord2D)
-                    self.move_type |= 1 << 3
                     self.play_sound()
                     self.turn = self.turn + 1
                 else:
@@ -363,9 +413,9 @@ class Game:
                 if self.board[r][c].is_valid_queen_side_castle(nx_cord2D, self.board):
                     rook_cord = (0, c)
                     nx_rook_cord2D = (nx_cord2D[0] + 1, nx_cord2D[1])
+                    self.move_type |= 1 << 4
                     self.move_piece(cur_cord2D, nx_cord2D)
                     self.move_piece(rook_cord, nx_rook_cord2D)
-                    self.move_type |= 1 << 4
                     self.play_sound()
                     self.turn = self.turn + 1
                 else:
@@ -460,18 +510,18 @@ class Game:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument(
         "--load-pgn",
         type=str,
         help="load a game from the game_pgns folder",
     )
 
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = argparser.add_subparsers(dest="command", required=True)
     stockfish_parser = subparsers.add_parser("stockfish")
     stockfish_parser.add_argument(
         "--elo",
-        type=int,
+        type=elo_range,
         default=1320,
         help="set the elo of Stockfish (default = %(default)s, min 1320 max 3190)",
     )
@@ -486,24 +536,39 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     )
 
     stockfish_parser.add_argument(
+        "--depth",
+        type=depth_range,
+        default=20,
+        help="set the depth of Stockfish calculation (default = %(default)s, min 1 max inf)",  # noqa 501
+    )
+
+    stockfish_parser.add_argument(
         "--color",
         choices=("white", "black"),
         default="black",
         help="choose the color of Stockfish (default = %(default)s)",
     )
 
-    args = parser.parse_args(argv)
+    stockfish_parser.add_argument(
+        "--movetime",
+        type=movetime_range,
+        default=1000,
+        help="choose the thinking time of Stockfish each move (default = %(default)s ms, min 1 max inf)",  # noqa 501
+    )
+
+    pvp_parser = subparsers.add_parser("pvp")  # noqa 841
+    args = argparser.parse_args(argv)
 
     if args.command == "stockfish":
         print("playing a fish")
+        stockfish = Communicator()
+        stockfish.settings(args.elo, args.threads)
     elif args.command == "pvp":
         print("playing a human")
-    print(args.load_pgn)
 
     pygame.init()
     pygame.display.set_caption(prog_name)
     game = Game()
-    game.writing_file = False
     game.running = True
     chess_board = pygame.image.load("png/chessboard/chessboard1.png").convert_alpha()
     chess_board = pygame.transform.scale(chess_board, screen_size)
@@ -520,6 +585,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         game.print_board(chess_board, chesscord_font)
         game.print_pieces()
+
+        pygame.display.update()
 
         if game.running is False:
             if game.turn % 2 == 0:
@@ -545,9 +612,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 return 0
 
         if game.turn % 2 == 0:
-            game.make_a_move("white")
+            if args.command == "stockfish" and args.color == "white":
+                move = stockfish.move(game.uci_moves, args.depth, args.movetime)
+                cur_cord2D, nx_cord2D, chosen = parser.parse_long_algebraic_notation(
+                    move[1]
+                )
+                game.process_move("white", cur_cord2D, nx_cord2D, chosen)
+            else:
+                game.make_a_move("white")
         else:
-            game.make_a_move("black")
+            if args.command == "stockfish" and args.color == "black":
+                move = stockfish.move(game.uci_moves, args.depth, args.movetime)
+                cur_cord2D, nx_cord2D, chosen = parser.parse_long_algebraic_notation(
+                    move[1]
+                )
+                game.process_move("black", cur_cord2D, nx_cord2D, chosen)
+            else:
+                game.make_a_move("black")
 
         pygame.display.update()
         clock.tick(60)

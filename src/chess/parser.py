@@ -1,24 +1,40 @@
 import re
 
 from chess import util
-from chess.piece import Bishop, King, Knight, Pawn, Piece, Queen, Rook
 
 
 def get_number_moves(pgn_string):
-    num_moves = 0
     moves = pgn_string.split(" ")
     sz = int(len(moves))
     k = int((sz + 3) / 3)
     return sz - k
 
 
+def parse_long_algebraic_notation(move):
+    cur_chesscord = (move[0], move[1])
+    nx_chesscord = (move[2], move[3])
+    cur_cord2D = util.chesscord_to_cord2D(cur_chesscord)
+    nx_cord2D = util.chesscord_to_cord2D(nx_chesscord)
+    chosen = -1
+    if len(move) == 5:
+        if move[4] == "q":
+            chosen = 0
+        elif move[4] == "k":
+            move[4] = 1
+        elif move[4] == "r":
+            chosen = 2
+        elif move[4] == "b":
+            chosen = 3
+    return cur_cord2D, nx_cord2D, chosen
+
+
 def parse_single(move_str, moving_color, board):
-    if re.search(r"^O-O[+#]?$", move_str) != None:
+    if re.search(r"^O-O[+#]?$", move_str) is None:
         if moving_color == "white":
             return (4, 7), (6, 7), -1
         if moving_color == "black":
             return (4, 0), (6, 0), -1
-    if re.search(r"^O-O-O[+#]?$", move_str) != None:
+    if re.search(r"^O-O-O[+#]?$", move_str) is None:
         if moving_color == "white":
             return (4, 7), (2, 7), -1
         if moving_color == "black":
@@ -33,13 +49,13 @@ def parse_single(move_str, moving_color, board):
 
     end = re.match(pattern, move_str).group(5)
     chosen = -1
-    if end == "=R":
+    if end == "=Q":
         chosen = 0
     elif end == "=K":
         chosen = 1
-    elif end == "=B":
+    elif end == "=R":
         chosen = 2
-    elif end == "=Q":
+    elif end == "=B":
         chosen = 3
 
     piece_name = ""

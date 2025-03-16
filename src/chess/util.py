@@ -40,6 +40,25 @@ def piece_type(piece):
     return ""
 
 
+def long_algebraic_notation(cord, nx_cord2D, move_type):
+    cur_chesscord = cord2D_to_chesscord(cord)
+    nx_chesscord = cord2D_to_chesscord(nx_cord2D)
+    move = []
+    move.append(f"{cur_chesscord[0]}")
+    move.append(f"{cur_chesscord[1]}")
+    move.append(f"{nx_chesscord[0]}")
+    move.append(f"{nx_chesscord[1]}")
+    if (move_type & (1 << 5)) != 0:
+        move.append("q")
+    if (move_type & (1 << 6)) != 0:
+        move.append("k")
+    if (move_type & (1 << 7)) != 0:
+        move.append("r")
+    if (move_type & (1 << 8)) != 0:
+        move.append("b")
+    return "".join(move)
+
+
 def debug_board(board):
     for r, row in enumerate(board):
         for c, piece in enumerate(row):
