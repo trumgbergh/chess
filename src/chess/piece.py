@@ -36,9 +36,22 @@ class Pawn(Piece):
         self.en_passant = False
         super().__init__(cord, f"{color}_pawn")
 
+    def check_any_valid_move(self, board):
+        dr = [-1, 0, 1, 0]
+        dc = [1, 1, 1, 2]
+        for i in range(len(dr)):
+            nx_cord2D = self.cord
+            nx_cord2D.x += dr[i]
+            if self.color == "white":
+                nx_cord2D.y -= dc[i]
+            else:
+                nx_cord2D.y += dc[i]
+            if self.is_valid_move(nx_cord2D, board) is True:
+                return True
+        return False
+
     def is_valid_move(self, next_cord2D, board, king_protection=True):
-        x = self.cord[0]
-        y = self.cord[1]
+        x, y = self.cord[0], self.cord[1]
         nx_x, nx_y = next_cord2D
         dx = self.cord[0] - next_cord2D[0]
         dy = self.cord[1] - next_cord2D[1]
@@ -109,6 +122,17 @@ class Rook(Piece):
     def __init__(self, cord, color):
         super().__init__(cord, f"{color}_rook")
 
+    def check_any_valid_move(self, board):
+        dr = [1, 0, -1, 0]
+        dc = [0, 1, 0, -1]
+        for i in range(len(dr)):
+            nx_cord2D = self.cord
+            nx_cord2D.x += dr[i]
+            nx_cord2D.y += dc[i]
+            if self.is_valid_move(nx_cord2D, board) is True:
+                return True
+        return False
+
     def is_valid_move(self, nx_cord2D, board, king_protection=True):
         x = self.cord[0]
         y = self.cord[1]
@@ -154,6 +178,17 @@ class Knight(Piece):
     def __init__(self, cord, color):
         super().__init__(cord, f"{color}_knight")
 
+    def check_any_valid_move(self, board):
+        dr = [2, 2, 1, 1, -1, -1, -2, -2]
+        dc = [1, -1, 2, -2, 2, -2, 1, -1]
+        for i in range(len(dr)):
+            nx_cord2D = self.cord
+            nx_cord2D.x += dr[i]
+            nx_cord2D.y += dc[i]
+            if self.is_valid_move(nx_cord2D, board) is True:
+                return True
+        return False
+
     def is_valid_move(self, nx_cord2D, board, king_protection=True):
         x = self.cord[0]
         y = self.cord[1]
@@ -182,6 +217,17 @@ class Knight(Piece):
 class Bishop(Piece):
     def __init__(self, cord, color):
         super().__init__(cord, f"{color}_bishop")
+
+    def check_any_valid_move(self, board):
+        dr = [1, 1, -1, -1]
+        dc = [1, -1, 1, -1]
+        for i in range(len(dr)):
+            nx_cord2D = self.cord
+            nx_cord2D.x += dr[i]
+            nx_cord2D.y += dc[i]
+            if self.is_valid_move(nx_cord2D, board) is True:
+                return True
+        return False
 
     def is_valid_move(self, nx_cord2D, board, king_protection=True):
         x = self.cord[0]
@@ -220,6 +266,17 @@ class Bishop(Piece):
 class King(Piece):
     def __init__(self, cord, color):
         super().__init__(cord, f"{color}_king")
+
+    def check_any_valid_move(self, board):
+        dr = [1, 1, -1, -1, 1, 0, -1, 0]
+        dc = [1, -1, 1, -1, 0, -1, 0, 1]
+        for i in range(len(dr)):
+            nx_cord2D = self.cord
+            nx_cord2D.x += dr[i]
+            nx_cord2D.y += dc[i]
+            if self.is_valid_move(nx_cord2D, board) is True:
+                return True
+        return False
 
     def is_checkmated(self, board):
         x, y = self.cord
@@ -337,6 +394,17 @@ class King(Piece):
 class Queen(Piece):
     def __init__(self, cord, color):
         super().__init__(cord, f"{color}_queen")
+
+    def check_any_valid_move(self, board):
+        dr = [1, 1, -1, -1, 1, 0, -1, 0]
+        dc = [1, -1, 1, -1, 0, -1, 0, 1]
+        for i in range(len(dr)):
+            nx_cord2D = self.cord
+            nx_cord2D.x += dr[i]
+            nx_cord2D.y += dc[i]
+            if self.is_valid_move(nx_cord2D, board) is True:
+                return True
+        return False
 
     def is_valid_move(self, nx_cord2D, board, king_protection=True):
         x, y = self.cord

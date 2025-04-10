@@ -176,6 +176,20 @@ class Game:
             name = piece.piece_name
             screen.blit(self.image[name], piece.pixelcord)
 
+    def check_stalemate(self, turn):
+        if turn % 2 == 0:
+            color = "white"
+        else:
+            color = "black"
+
+        for i in range(8):
+            for j in range(8):
+                if self.board[i][j].color == color and self.board[i][
+                    j
+                ].check_any_valid_move(self.board):
+                    return False
+        return True
+
     def pawn_promotion(self, pawn_cord, chosen=0):
         r, c = pawn_cord
         color = self.board[r][c].color
@@ -599,6 +613,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 return 0
 
         game.board_hash.update_hash_player_turn(game.turn)
+
+        if game.check_stalemate(game.turn) is True:
+            print("STALEMATE!!!")
+            pygame.quit()
+            return 0
 
         if len(game.board_history) == game.turn:
             game.board_history.append(copy.deepcopy(game.board))
