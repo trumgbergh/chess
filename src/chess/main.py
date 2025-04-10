@@ -404,6 +404,8 @@ class Game:
         r, c = cur_cord2D
         piece_name = self.board[r][c].piece_name
 
+        print(f"{piece_name}")
+        print(f"{cur_cord2D}")
         if self.board[r][c].is_valid_move(nx_cord2D, self.board):
             self.move_piece(cur_cord2D, nx_cord2D)
             self.turn = self.turn + 1
@@ -589,6 +591,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     chesscord_font = pygame.font.Font("font/NotoSans-Regular.ttf", 20)
     pygame.mixer.Sound("sound/standard/game-start.mp3").play()
     if args.load_pgn is not None:
+        print("loading")
         game.load_game_from_pgn(f"game_pgns/{args.load_pgn}")
 
     while True:

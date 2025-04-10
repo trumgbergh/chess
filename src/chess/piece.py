@@ -40,12 +40,15 @@ class Pawn(Piece):
         dr = [-1, 0, 1, 0]
         dc = [1, 1, 1, 2]
         for i in range(len(dr)):
-            nx_cord2D = self.cord
-            nx_cord2D.x += dr[i]
+            x, y = self.cord
+            x += dr[i]
             if self.color == "white":
-                nx_cord2D.y -= dc[i]
+                y -= dc[i]
             else:
-                nx_cord2D.y += dc[i]
+                y += dc[i]
+            if not (0 <= x <= 7 and 0 <= y <= 7):
+                continue
+            nx_cord2D = (x, y)
             if self.is_valid_move(nx_cord2D, board) is True:
                 return True
         return False
@@ -126,9 +129,12 @@ class Rook(Piece):
         dr = [1, 0, -1, 0]
         dc = [0, 1, 0, -1]
         for i in range(len(dr)):
-            nx_cord2D = self.cord
-            nx_cord2D.x += dr[i]
-            nx_cord2D.y += dc[i]
+            x, y = self.cord
+            x += dr[i]
+            y += dc[i]
+            if not (0 <= x <= 7 and 0 <= y <= 7):
+                continue
+            nx_cord2D = (x, y)
             if self.is_valid_move(nx_cord2D, board) is True:
                 return True
         return False
@@ -182,9 +188,12 @@ class Knight(Piece):
         dr = [2, 2, 1, 1, -1, -1, -2, -2]
         dc = [1, -1, 2, -2, 2, -2, 1, -1]
         for i in range(len(dr)):
-            nx_cord2D = self.cord
-            nx_cord2D.x += dr[i]
-            nx_cord2D.y += dc[i]
+            x, y = self.cord
+            x += dr[i]
+            y += dc[i]
+            if not (0 <= x <= 7 and 0 <= y <= 7):
+                continue
+            nx_cord2D = (x, y)
             if self.is_valid_move(nx_cord2D, board) is True:
                 return True
         return False
@@ -222,9 +231,12 @@ class Bishop(Piece):
         dr = [1, 1, -1, -1]
         dc = [1, -1, 1, -1]
         for i in range(len(dr)):
-            nx_cord2D = self.cord
-            nx_cord2D.x += dr[i]
-            nx_cord2D.y += dc[i]
+            x, y = self.cord
+            x += dr[i]
+            y += dc[i]
+            if not (0 <= x <= 7 and 0 <= y <= 7):
+                continue
+            nx_cord2D = (x, y)
             if self.is_valid_move(nx_cord2D, board) is True:
                 return True
         return False
@@ -271,9 +283,12 @@ class King(Piece):
         dr = [1, 1, -1, -1, 1, 0, -1, 0]
         dc = [1, -1, 1, -1, 0, -1, 0, 1]
         for i in range(len(dr)):
-            nx_cord2D = self.cord
-            nx_cord2D.x += dr[i]
-            nx_cord2D.y += dc[i]
+            x, y = self.cord
+            x += dr[i]
+            y += dc[i]
+            if not (0 <= x <= 7 and 0 <= y <= 7):
+                continue
+            nx_cord2D = (x, y)
             if self.is_valid_move(nx_cord2D, board) is True:
                 return True
         return False
@@ -399,9 +414,12 @@ class Queen(Piece):
         dr = [1, 1, -1, -1, 1, 0, -1, 0]
         dc = [1, -1, 1, -1, 0, -1, 0, 1]
         for i in range(len(dr)):
-            nx_cord2D = self.cord
-            nx_cord2D.x += dr[i]
-            nx_cord2D.y += dc[i]
+            x, y = self.cord
+            x += dr[i]
+            y += dc[i]
+            if not (0 <= x <= 7 and 0 <= y <= 7):
+                continue
+            nx_cord2D = (x, y)
             if self.is_valid_move(nx_cord2D, board) is True:
                 return True
         return False

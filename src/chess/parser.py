@@ -29,12 +29,12 @@ def parse_long_algebraic_notation(move):
 
 
 def parse_single(move_str, moving_color, board):
-    if re.search(r"^O-O[+#]?$", move_str) is None:
+    if re.search(r"^O-O[+#]?$", move_str) is not None:
         if moving_color == "white":
             return (4, 7), (6, 7), -1
         if moving_color == "black":
             return (4, 0), (6, 0), -1
-    if re.search(r"^O-O-O[+#]?$", move_str) is None:
+    if re.search(r"^O-O-O[+#]?$", move_str) is not None:
         if moving_color == "white":
             return (4, 7), (2, 7), -1
         if moving_color == "black":
@@ -46,6 +46,7 @@ def parse_single(move_str, moving_color, board):
     cur_rank = re.match(pattern, move_str).group(3)
     dest = re.match(pattern, move_str).group(4)
     dest_cord2D = util.chesscord_to_cord2D(dest)
+    print(f"{piece=}")
 
     end = re.match(pattern, move_str).group(5)
     chosen = -1
