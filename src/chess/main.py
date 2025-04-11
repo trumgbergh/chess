@@ -56,7 +56,8 @@ def movetime_range(s: str) -> int:
 class Game:
     def __init__(self):
         self.turn = 0
-        self.fifty_move_rule = 0
+        self.half_moves = 0
+        self.full_moves = 1
         self.running = False
         self.writing_file = True
         self.file_name = datetime.datetime.now().strftime("game%Y_%m_%d_%H_%M_%S")
@@ -356,11 +357,16 @@ class Game:
             self.running = False
             self.move_type |= 1 << 9
 
+        self.remove_en_passant(moving_color)
+
         # Fifty move rule
+        self.half_moves += 1
+        if moving_color == "black":
+            self.full_moves += 1
         if piece_name == "white_pawn" or piece_name == "black_pawn":
-            self.fifty_move_rule = (self.turn // 2) + 1
+            self.half_moves = 0
         if (self.move_type & (1 << 0)) != 0:
-            self.fifty_move_rule = (self.turn // 2) + 1
+            self.half_moves = 0
 
         # uci_moves
         uci_cur_move = "".join(
@@ -446,16 +452,16 @@ class Game:
         self.moving_cell = (-1, -1)
 
     def remove_en_passant(self, moving_color):
+        op_color = "white"
+        if moving_color == "white":
+            op_color = "black"
         for row in self.board:
             for piece in row:
-                if piece.color != moving_color:
-                    continue
-                if piece.piece_name == f"{moving_color}_pawn":
+                if piece.piece_name == f"{op_color}_pawn":
                     piece.en_passant = False
 
     def make_a_move(self, moving_color):
         mouse_pos = pygame.mouse.get_pos()
-        self.remove_en_passant(moving_color)
 
         if self.moving_cell == (-1, -1):
             for r in range(8):
@@ -611,9 +617,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         pygame.display.update()
 
-        move_num = (game.turn // 2) + 1
-
-        if move_num - game.fifty_move_rule - 1 == 51:
+        print(util.get_FEN(game.board, game.half_moves, game.full_moves, game.turn))
+        if game.half_moves == 100:
             print("GAME DRAWN!!! - 50 Move Rule!!!")
             pygame.quit()
             return 0

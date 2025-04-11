@@ -109,14 +109,11 @@ class Pawn(Piece):
                 return False
 
         if abs(dy) == 2:
-            op_pawn = "white_pawn"
-            if self.color == "white":
-                op_pawn = "black_pawn"
-
-            if nx_x != 0 and board[nx_x - 1][nx_y].piece_name == op_pawn:
-                self.en_passant = True
-            if nx_x != 7 and board[nx_x + 1][nx_y].piece_name == op_pawn:
-                self.en_passant = True
+            self.en_passant = True
+            # if nx_x != 0 and board[nx_x - 1][nx_y].piece_name == op_pawn:
+            #     self.en_passant = True
+            # if nx_x != 7 and board[nx_x + 1][nx_y].piece_name == op_pawn:
+            #     self.en_passant = True
         self.has_moved = True
         return True
 
