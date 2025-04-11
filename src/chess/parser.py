@@ -46,7 +46,6 @@ def parse_single(move_str, moving_color, board):
     cur_rank = re.match(pattern, move_str).group(3)
     dest = re.match(pattern, move_str).group(4)
     dest_cord2D = util.chesscord_to_cord2D(dest)
-    print(f"{piece=}")
 
     end = re.match(pattern, move_str).group(5)
     chosen = -1

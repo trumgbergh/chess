@@ -17,6 +17,7 @@ import pygame  # noqa: E402
 
 prog_name = "Chess"
 screen_size = util.screen_size
+board_size = util.board_size
 screen = pygame.display.set_mode(screen_size)
 clock = pygame.time.Clock()
 
@@ -55,6 +56,7 @@ def movetime_range(s: str) -> int:
 class Game:
     def __init__(self):
         self.turn = 0
+        self.fifty_move_rule = 0
         self.running = False
         self.writing_file = True
         self.file_name = datetime.datetime.now().strftime("game%Y_%m_%d_%H_%M_%S")
@@ -119,7 +121,7 @@ class Game:
             file.write(" ")
 
     def print_board(self, chess_board, chesscord_font):
-        screen.blit(chess_board, (0, 0))
+        screen.blit(chess_board, util.board_pixel)
         for i in range(8):
             num_cord2D = (0, i)
             num_chesscord = util.cord2D_to_chesscord(num_cord2D)
@@ -255,7 +257,6 @@ class Game:
         return -1
 
     def play_sound(self):
-        print(f"{self.move_type=}")
         if (self.move_type & (1 << 1)) != 0:
             pygame.mixer.Sound("sound/standard/move-check.mp3").play()
         elif (self.move_type & (1 << 0)) != 0:
@@ -333,7 +334,6 @@ class Game:
                 return
             self.move_type |= 1 << (5 + self.pawn_promotion(nx_cord2D, chosen))
 
-        print(self.board[nx_r][nx_c].chesscord)
         # updating rec
         self.board[nx_r][nx_c].pixelcord = util.cord2tlpixel(nx_cord2D)
         self.board_rec[nx_r][nx_c] = self.image[piece_name].get_rect(
@@ -355,6 +355,12 @@ class Game:
         if self.board[king_row][king_col].is_checkmated(self.board):
             self.running = False
             self.move_type |= 1 << 9
+
+        # Fifty move rule
+        if piece_name == "white_pawn" or piece_name == "black_pawn":
+            self.fifty_move_rule = (self.turn // 2) + 1
+        if (self.move_type & (1 << 0)) != 0:
+            self.fifty_move_rule = (self.turn // 2) + 1
 
         # uci_moves
         uci_cur_move = "".join(
@@ -404,8 +410,6 @@ class Game:
         r, c = cur_cord2D
         piece_name = self.board[r][c].piece_name
 
-        print(f"{piece_name}")
-        print(f"{cur_cord2D}")
         if self.board[r][c].is_valid_move(nx_cord2D, self.board):
             self.move_piece(cur_cord2D, nx_cord2D)
             self.turn = self.turn + 1
@@ -587,9 +591,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     game = Game()
     game.running = True
     chess_board = pygame.image.load("png/chessboard/chessboard1.png").convert_alpha()
-    chess_board = pygame.transform.scale(chess_board, screen_size)
+    chess_board = pygame.transform.scale(chess_board, board_size)
     chesscord_font = pygame.font.Font("font/NotoSans-Regular.ttf", 20)
     pygame.mixer.Sound("sound/standard/game-start.mp3").play()
+    game.writing_file = True
     if args.load_pgn is not None:
         print("loading")
         game.load_game_from_pgn(f"game_pgns/{args.load_pgn}")
@@ -600,10 +605,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 pygame.quit()
                 return 0
 
+        screen.fill((0, 0, 0))
         game.print_board(chess_board, chesscord_font)
         game.print_pieces()
 
         pygame.display.update()
+
+        move_num = (game.turn // 2) + 1
+
+        if move_num - game.fifty_move_rule - 1 == 51:
+            print("GAME DRAWN!!! - 50 Move Rule!!!")
+            pygame.quit()
+            return 0
 
         if game.running is False:
             if game.turn % 2 == 0:
@@ -618,7 +631,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         game.board_hash.update_hash_player_turn(game.turn)
 
         if game.check_stalemate(game.turn) is True:
-            print("STALEMATE!!!")
+            print("GAME DRAWN!!! - STALEMATE!!!")
             pygame.quit()
             return 0
 
@@ -629,7 +642,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 game.state_counter[game.board_hash.hash] = 0
             game.state_counter[game.board_hash.hash] += 1
             if game.state_counter[game.board_hash.hash] == 3:
-                print("GAME DRAWN!!!")
+                print("GAME DRAWN!!! - Threefold repetition")
                 pygame.quit()
                 return 0
 

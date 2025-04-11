@@ -1,17 +1,25 @@
-screen_size = width, height = 730, 730
-sq_size = screen_size[0] // 8
+screen_size = width, height = 730, 850
+board_size = width, height = 730, 730
+sq_size = board_size[0] // 8
+board_pixel = 0, 80
 
 
 def cord2tlpixel(cord):
-    return (cord[0] * sq_size, cord[1] * sq_size)
+    return (board_pixel[0] + cord[0] * sq_size, board_pixel[1] + cord[1] * sq_size)
 
 
 def cord2blpixel(cord):
-    return (cord[0] * sq_size + 75, cord[1] * sq_size + 65)
+    return (
+        board_pixel[0] + cord[0] * sq_size + 75,
+        board_pixel[1] + cord[1] * sq_size + 65,
+    )
 
 
 def cord2centerpixel(cord):
-    return (cord[0] * sq_size + sq_size // 2, cord[1] * sq_size + sq_size // 2)
+    return (
+        board_pixel[0] + cord[0] * sq_size + sq_size // 2,
+        board_pixel[1] + cord[1] * sq_size + sq_size // 2,
+    )
 
 
 def cord2D_to_chesscord(cord):
@@ -171,4 +179,6 @@ def algebraic_notation(cord, nx_cord2D, board, move_type):
 def turn_pgn_to_string(file_name):
     with open(f"{file_name}.pgn", "r") as file:
         moves = file.read()
+        print(f"{moves=}")
+
     return moves
