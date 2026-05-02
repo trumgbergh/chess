@@ -9,7 +9,7 @@ from typing import Optional, Sequence
 from chess import parser, util
 from chess.hash import ZobristHash
 from chess.piece import Bishop, King, Knight, Pawn, Piece, Queen, Rook
-from chess.uci import Communicator
+from chess.uci import StockfishCommunicator
 
 environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
@@ -311,6 +311,7 @@ class Game:
             self.board_rec[nx_r][c] = None
 
         self.board[nx_r][nx_c] = self.board[r][c]
+        self.board[nx_r][nx_c].has_moved = True
         self.board[r][c] = Piece((-1, -1), "None")
         self.board_rec[r][c] = None
 
@@ -372,6 +373,7 @@ class Game:
         uci_cur_move = "".join(
             util.long_algebraic_notation(cell, nx_cord2D, self.move_type)
         )
+
         is_rook_castling = False
         if piece_name == "white_rook" or piece_name == "black_rook":
             if (self.move_type & (1 << 3)) != 0 or (self.move_type & (1 << 4)) != 0:
@@ -502,6 +504,36 @@ class Game:
                 return
             self.process_move(moving_color, self.moving_cell, nx_cord2D)
 
+    def gen_move(self, moving_color):
+        for i in range(8):
+            for j in range(8):
+                piece = self.board[i][j]
+                if piece.color != moving_color:
+                    continue
+                for r in range(8):
+                    for c in range(8):
+                        nx_cord = (r, c)
+                        if piece.is_valid_move(nx_cord, self.board) is False:
+                            continue
+                        if piece.piece_name == "white_pawn" and c == 0:
+                            for bit in range(5, 9):
+                                print(
+                                    util.long_algebraic_notation(
+                                        (i, j), nx_cord, (1 << bit)
+                                    )
+                                )
+                        elif piece.piece_name == "black_pawn" and c == 7:
+                            for bit in range(5, 9):
+                                print(
+                                    util.long_algebraic_notation(
+                                        (i, j), nx_cord, (1 << bit)
+                                    )
+                                )
+                        else:
+                            print(util.long_algebraic_notation((i, j), nx_cord, 0))
+        print("end")
+        return
+
     def repetition(self, board1, board2):
         for r in range(8):
             for c in range(8):
@@ -587,7 +619,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.command == "stockfish":
         print("playing a fish")
-        stockfish = Communicator()
+        stockfish = StockfishCommunicator()
         stockfish.settings(args.elo, args.threads)
     elif args.command == "pvp":
         print("playing a human")
@@ -617,7 +649,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         pygame.display.update()
 
-        print(util.get_FEN(game.board, game.half_moves, game.full_moves, game.turn))
         if game.half_moves == 100:
             print("GAME DRAWN!!! - 50 Move Rule!!!")
             pygame.quit()
@@ -658,6 +689,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     move[1]
                 )
                 game.process_move("white", cur_cord2D, nx_cord2D, chosen)
+            # if args.command == "trungbot" and args.color == "white":
             else:
                 game.make_a_move("white")
         else:

@@ -114,7 +114,6 @@ class Pawn(Piece):
             #     self.en_passant = True
             # if nx_x != 7 and board[nx_x + 1][nx_y].piece_name == op_pawn:
             #     self.en_passant = True
-        self.has_moved = True
         return True
 
 
@@ -132,7 +131,9 @@ class Rook(Piece):
             if not (0 <= x <= 7 and 0 <= y <= 7):
                 continue
             nx_cord2D = (x, y)
+            has_moved = self.has_moved
             if self.is_valid_move(nx_cord2D, board) is True:
+                self.has_moved = has_moved
                 return True
         return False
 
@@ -173,7 +174,6 @@ class Rook(Piece):
             attacked = super().is_king_in_danger(self.cord, nx_cord2D, board)
             if attacked is True:
                 return False
-        self.has_moved = True
         return True
 
 
@@ -321,7 +321,6 @@ class King(Piece):
             if attacked is True:
                 return False
 
-        self.has_moved = True
         return True
 
     def is_king_checked(self, board):
