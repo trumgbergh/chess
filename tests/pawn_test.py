@@ -1,5 +1,6 @@
 import pytest
 
+from chess import util  # noqa: F401
 from chess.piece import Pawn
 
 test_boards = [
